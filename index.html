@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>百阿1403 の 猜猜看</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <link rel="stylesheet" href="./utils/layui/css/layui.css" />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <h1 id="game-title">
+      <span class="title-name-k">百</span><span class="title-name-e">阿</span
+      ><span class="title-de"> の </span>猜猜看
+    </h1>
+
+    <br /><br />
+
+    <form id="game-form" class="layui-form">
+      <div class="layui-form-item">
+        <label class="layui-form-label">题数:</label>
+        <div class="layui-input-block">
+          <input type="radio" name="qNum" value="10" title="10" checked />
+          <input type="radio" name="qNum" value="30" title="30" />
+          <input type="radio" name="qNum" value="50" title="50" />
+        </div>
+      </div>
+
+      <br /><br />
+
+      <div class="layui-form-item">
+        <label class="layui-form-label">时间:</label>
+        <div class="layui-input-block">
+          <input type="radio" name="qTime" value="180" title="180s" checked />
+          <input type="radio" name="qTime" value="360" title="360s" />
+          <input type="radio" name="qTime" value="720" title="720s" />
+        </div>
+      </div>
+
+      <br /><br />
+
+      <div class="layui-form-item">
+        <div class="layui-input-block">
+          <button
+            class="layui-btn layui-btn-danger"
+            lay-submit
+            lay-filter="formDemo"
+          >
+            开始游戏 !
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <div style="display: none" id="question-wrapper">
+      <div id="time-bar" style="position: relative">
+        <div id="time-bar-process"></div>
+        <div
+          id="time-bar-count"
+          style="
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            font-size: 18px;
+            font-weight: bold;
+          "
+        ></div>
+      </div>
+
+      <!-- 答题卡 -->
+      <div id="questions">
+        <div class="question"></div>
+      </div>
+
+      <!-- 操作 -->
+      <div class="buttons buttons-op-switch">
+        <button
+          class="layui-btn layui-btn-normal layui-btn-radius"
+          id="btn-restart-game"
+        >
+          重新开始游戏
+        </button>
+        <button
+          class="layui-btn layui-btn-normal layui-btn-radius"
+          id="btn-skip"
+        >
+          跳过这一题
+        </button>
+      </div>
+
+      <!-- 统计信息 -->
+      <div id="statistic-info">
+        正确: <span id="statistic-info-correct">0</span> 题 &nbsp; 错误:
+        <span id="statistic-info-error">0</span> 题 &nbsp; 跳过:
+        <span id="statistic-info-skip">0</span> 题 &nbsp;
+      </div>
+
+      <!-- 操作 -->
+      <div class="buttons buttons-op-tof">
+        <button
+          class="layui-btn layui-btn-big layui-btn-green layui-btn-radius"
+          id="btn-correct"
+        >
+          正确
+        </button>
+        <button
+          class="layui-btn layui-btn-big layui-btn-danger layui-btn-radius"
+          id="btn-error"
+        >
+          错误
+        </button>
+      </div>
+    </div>
+
+    <script src="./utils/layui/layui.js"></script>
+    <script src="./js/jquery.min.js"></script>
+    <script src="./js/strings.js"></script>
+    <script>
+      var itv; // 时间条计时器
+
+      var currentQuestionIndex = Math.floor(
+        Math.random() * window.strings.length
+      ); // 当前问题的编号
+
+      var qCorrectNum = 0; // 正确的数量
+      var qErrorNum = 0; // 错误的数量
+      var qSkipNum = 0; // 跳过的数量
+      var qTotalNum = 0; // 总数量
+      var qTotalTime = 0;
+
+      $(function () {
+        layui.use("form", function () {
+          var form = layui.form;
+
+          //监听提交
+          form.on("submit(formDemo)", function (data) {
+            qTotalNum = data.field.qNum;
+            qTotalTime = data.field.qTime;
+            $("#game-form").css({ display: "none" });
+            $("#questions .question").text(
+              window.strings[currentQuestionIndex]
+            );
+            $("#question-wrapper").css({ display: "block" });
+
+            // 渲染统计数据
+            displayResult();
+
+            // 计时开始
+            var qTime = qTotalTime; // total time
+            var sec = 0; // time already used
+
+            timeBar = $("#time-bar-process");
+            itv = setInterval(function () {
+              sec++;
+              bi = (sec / qTime) * 100;
+
+              if (bi >= 50) {
+                timeBar.css({ "background-color": "orange" });
+              }
+
+              if (bi >= 75) {
+                timeBar.css({ "background-color": "red" });
+              }
+
+              timeBar.css({ width: bi + "%" });
+              $("#time-bar-count").text(`倒计时：${qTime - sec}`);
+
+              if (bi >= 100) {
+                clearInterval(itv);
+                layui.use("layer", function () {
+                  var layer = layui.layer;
+                  layer.msg("时间到了 !");
+                });
+              }
+            }, 1000);
+
+            // 正确
+            $("#btn-correct").click(function () {
+              nextOne(1);
+            });
+
+            // 错误
+            $("#btn-error").click(function () {
+              nextOne(2);
+            });
+
+            // 跳过这一题
+            $("#btn-skip").click(function () {
+              nextOne(3);
+            });
+
+            // 重新开始游戏
+            $("#btn-restart-game").click(function () {
+              if (confirm("确定要重新开始游戏吗？")) {
+                currentQuestionIndex = Math.floor(
+                  Math.random() * window.strings.length
+                ); // 当前问题的编号
+                qCorrectNum = 0; // 正确的数量
+                qErrorNum = 0; // 错误的数量
+                qSkipNum = 0; // 跳过的数量
+                qTotalNum = 0; // 总数量
+                qTotalTime = 0;
+                $("#game-form").css({ display: "block" });
+                $("#question-wrapper").css({ display: "none" });
+                clearInterval(itv);
+                $("#time-bar-count").text("倒计时：");
+                $("#btn-correct").unbind();
+                $("#btn-error").unbind();
+                $("#btn-skip").unbind();
+                timeBar.css({ "background-color": "green" });
+                timeBar.css({ width: "0%" });
+              }
+            });
+
+            // 切换题目
+            function nextOne(op) {
+              if (qCorrectNum + qErrorNum + qSkipNum + 1 >= qTotalNum) {
+                clearInterval(itv);
+              }
+
+              if (qCorrectNum + qErrorNum + qSkipNum + 1 > qTotalNum) {
+                layui.use("layer", function () {
+                  var layer = layui.layer;
+                  layer.msg("游戏结束 !");
+                });
+                return;
+              }
+
+              strings.splice(currentQuestionIndex, 1);
+              currentQuestionIndex = Math.floor(
+                Math.random() * window.strings.length
+              );
+              $("#questions .question").text(strings[currentQuestionIndex]);
+
+              switch (op) {
+                case 1: // 正确
+                  qCorrectNum++;
+                  break;
+                case 2: // 错误
+                  qErrorNum++;
+                  break;
+                case 3: // 跳过这一题
+                  qSkipNum++;
+                  break;
+                default:
+                  break;
+              }
+
+              // 重新统计数据
+              displayResult();
+            }
+
+            // 渲染数据
+            function displayResult() {
+              $("#statistic-info-correct").text(qCorrectNum);
+              $("#statistic-info-error").text(qErrorNum);
+              $("#statistic-info-skip").text(qSkipNum);
+            }
+            return false;
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
